@@ -21,3 +21,6 @@ from ._gradient.gradient import GradAnalysis, GradSynthesis, \
 # Linear operators
 from ._linear.wavelet import WaveletN, WaveletUD2
 from ._linear.dictionary import DictionaryLearning
+
+# Proximity operators
+from ._proximity._image_based import PatchLowRank

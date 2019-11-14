@@ -11,11 +11,14 @@
 This implements the single channel reconstruction.
 """
 
-from ._base import ReconstructorWaveletBase
+# Package import
+from ._base import ReconstructorWaveletBase, ReconstructorBase
 from .utils.cost import GenericCost
 from mri.operators import GradSynthesis, GradAnalysis
+from mri.operators import PatchLowRank
 from mri.optimizers import pogm, condatvu, fista
 
+# Module import
 from modopt.opt.proximity import SparseThreshold, LowRankMatrix, \
     OrderedWeightedL1Norm, Ridge, ElasticNet
 from modopt.opt.linear import Identity
@@ -31,10 +34,10 @@ class SparseCalibrationlessReconstructor(ReconstructorWaveletBase):
         the data to reconstruct: observation are expected in Fourier space.
     kspace_loc: np.ndarray
         the mask samples in the Fourier domain.
-    fourier_type: str (optional, default 'cartesian')
-        type of fourier operator : 'cartesian' | 'non-cartesian' | 'stack'
     uniform_data_shape: uplet (optional, default None)
-        the shape of the matrix containing the uniform data.
+        the shape of the reconstructed volume
+    n_coils: int
+        the number of channels used to acquire the signal
     wavelet_name: str | int
         if implementation is with waveletN the wavelet name to be used during
         the decomposition, else implementation with waveletUD2 where the
@@ -51,30 +54,43 @@ class SparseCalibrationlessReconstructor(ReconstructorWaveletBase):
         'synthesis'
     nfft_implementation: str, default 'cpu'
         way to implement NFFT : 'cpu' | 'cuda' | 'opencl'
+    n_jobs: int, default 1
+        number of jobs used to run the wavelet decomposition in parallel
     lips_calc_max_iter: int, default 10
         Defines the maximum number of iterations to calculate the lipchitz
         constant
+    lipschitz_cst: int, default None
+        lipschitz constant value specified by the user, the lispchitz constant
+        value will then be checked over num_check_lips runs.
+        If this is not specified, it is calculated using PowerMethod with a
+        maximum number of iteration equal to lips_calc_max_iter
     num_check_lips: int, default 10
         Number of iterations to check if the lipchitz constant is correct
     optimization_alg: str, default 'pogm'
         Type of optimization algorithm to use, 'pogm' | 'fista' | 'condatvu'
-    lipschitz_cst: int, default None
-        The user specified lipschitz constant. If this is not specified,
-        it is calculated using PowerMethod
     verbose: int, default 0
         Verbosity level.
             1 => Print basic debug information
             5 => Print all initialization information
             20 => Calculate cost at the end of each iteration.
                 NOTE : This is computationally intensive.
+
+    Atributes:
+    ----------
+    gradient_op: GradBase
+        Gradient object used for by the reconstruction
+    prox_op: ProximityParent object
+        Proximity operator used as regularization
+    opt: OptimizationAlgorithm
+        The optimization algorithm used by the minimization
     """
 
     def __init__(self, kspace_data, kspace_loc, uniform_data_shape, n_coils,
                  wavelet_name, mu, padding_mode="zero", nb_scale=4,
                  fourier_type='non-cartesian', gradient_method="synthesis",
                  nfft_implementation='cpu', n_jobs=1, lips_calc_max_iter=10,
-                 num_check_lips=10, optimization_alg='pogm',
-                 lipschitz_cst=None, verbose=0):
+                 lipschitz_cst=None, num_check_lips=10,
+                 optimization_alg='pogm', verbose=0):
         self.optimization_alg = optimization_alg
         self.verbose = verbose
 
@@ -161,4 +177,120 @@ class SparseCalibrationlessReconstructor(ReconstructorWaveletBase):
         else:
             raise ValueError("The optimization_alg must be either 'fista' or "
                              "'condatvu or 'pogm'")
+        return self.x_final, self.costs, self.metrics
+
+
+class LowRankCalibrationlessReconstructor(ReconstructorBase):
+    """ This class implements a calibrationless reconstruction based on a
+    patch based low-rank regularization.
+
+    argmin (1/2) * sum(||Ft x[l] - y[l]||^2_2,l) + mu * sum(|| P x||_*,
+                                                            patches)
+
+    where P is the patch extraction operator
+
+    References:
+    -----------
+    Calibrationless parallel MRI using CLEAR
+    Trzasko, Joshua D
+    2011 Conference Record of the Forty Fifth ASILOMAR
+    pp. 75-79 2011
+
+    Parameters
+    ----------
+    kspace_data: ndarray
+        the data to reconstruct: observation are expected in Fourier space.
+    kspace_loc: np.ndarray
+        the mask samples in the Fourier domain.
+    fourier_type: str (optional, default 'cartesian')
+        type of fourier operator : 'cartesian' | 'non-cartesian' | 'stack'
+    uniform_data_shape: uplet (optional, default None)
+        the shape of the matrix containing the uniform data.
+    n_coils: int
+        the number of channels used to acquire the signal
+    patch_shape: tuple
+        Patches shape used to compute the SVD
+    overlapping_factor: int
+        The overlapping factor, must be greater or equal to 1
+    mu: float
+        The regularization parameter
+    fourier_type: str (optional, default 'cartesian')
+        type of fourier operator : 'cartesian' | 'non-cartesian' | 'stack'
+    nfft_implementation: str, default 'cpu'
+        way to implement NFFT : 'cpu' | 'cuda' | 'opencl'
+    lips_calc_max_iter: int, default 10
+        Defines the maximum number of iterations to calculate the lipchitz
+        constant
+    num_check_lips: int, default 10
+        Number of iterations to check if the lipchitz constant is correct
+    lipschitz_cst: int, default None
+        The user specified lipschitz constant. If this is not specified,
+        it is calculated using PowerMethod
+    n_jobs: int, defaul 1
+        Number of jobs to run the proximity operator in parallel
+    verbose: int, default 0
+        Verbosity level.
+            1 => Print basic debug information
+            5 => Print all initialization information
+            20 => Calculate cost at the end of each iteration.
+                NOTE : This is computationally intensive.
+    """
+
+    def __init__(self, kspace_data, kspace_loc, uniform_data_shape, n_coils,
+                 patch_shape, overlapping_factor, mu,
+                 fourier_type='non-cartesian', nfft_implementation='cpu',
+                 lips_calc_max_iter=10, num_check_lips=10, lipschitz_cst=None,
+                 n_jobs=1, verbose=0):
+
+        self.optimization_alg = "condatvu"
+        self.verbose = verbose
+
+        # Initialize the Fourier and Linear Operator
+        super(LowRankCalibrationlessReconstructor, self).__init__(
+            kspace_loc=kspace_loc,
+            uniform_data_shape=uniform_data_shape,
+            n_coils=n_coils,
+            fourier_type=fourier_type,
+            nfft_implementation=nfft_implementation,
+            n_jobs=n_jobs,
+            verbose=verbose)
+
+        # Initialize gradient operator and proximity operators
+        self.gradient_op = GradAnalysis(
+            data=kspace_data,
+            fourier_op=self.fourier_op,
+            max_iter_spec_rad=lips_calc_max_iter,
+            lipschitz_cst=lipschitz_cst,
+            num_check_lips=num_check_lips,
+            verbose=self.verbose)
+
+        self.prox_op = PatchLowRank(weights=mu, patch_shape=patch_shape,
+                                    overlapping_factor=overlapping_factor,
+                                    thresh_type='soft', num_cores=n_jobs)
+        self.prox_op.op = lambda x: x
+
+        self.cost_op = GenericCost(gradient_op=self.gradient_op,
+                                   prox_op=self.prox_op,
+                                   verbose=self.verbose >= 20)
+
+    def reconstruct(self, x_init=None, num_iterations=100, **kwargs):
+        """ This method calculates operator transform.
+        Parameters
+        ----------
+        x_init: np.ndarray (optional, default None)
+            input initial guess image for reconstruction
+        num_iterations: int (optional, default 100)
+            number of iterations of algorithm
+        """
+        linear_op = Identity()
+        linear_op.l2norm = lambda x: 1
+        linear_op.n_coils = self.gradient_op.fourier_op.n_coils
+        self.x_final, self.costs, self.metrics, self.y_final = condatvu(
+            gradient_op=self.gradient_op,
+            linear_op=linear_op,
+            prox_dual_op=self.prox_op,
+            cost_op=self.cost_op,
+            max_nb_of_iter=num_iterations,
+            verbose=self.verbose,
+            **kwargs)
         return self.x_final, self.costs, self.metrics

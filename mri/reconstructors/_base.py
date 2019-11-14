@@ -13,7 +13,8 @@ from mri.operators import WaveletN, WaveletUD2
 
 class ReconstructorBase(object):
     def __init__(self, kspace_loc, uniform_data_shape, n_coils,
-                 fourier_type, nfft_implementation, verbose):
+                 fourier_type, nfft_implementation, n_jobs, verbose):
+        self.n_jobs = n_jobs
         # Define the linear/fourier operators
         if fourier_type == 'non-cartesian':
             self.fourier_op = NonCartesianFFT(
@@ -58,6 +59,7 @@ class ReconstructorWaveletBase(ReconstructorBase):
             n_coils=n_coils,
             fourier_type=fourier_type,
             nfft_implementation=nfft_implementation,
+            n_jobs=1,
             verbose=verbose)
         verbose = int(verbose > 20)
         if wavelet_op_per_channel is False:
