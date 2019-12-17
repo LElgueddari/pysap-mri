@@ -25,7 +25,7 @@ import pynfft
 
 try:
     from pynufft import NUFFT_hsa, NUFFT_cpu
-except Exception:
+except ImportError:
     warnings.warn("pynufft python package has not been found. If needed use "
                   "the master release. Till then you cannot use NUFFT on GPU")
     pass
