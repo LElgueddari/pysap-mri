@@ -21,12 +21,8 @@ from .utils import normalize_frequency_locations, get_stacks_fourier
 from modopt.interface.errors import warn
 
 # Third party import
-try:
-    import pynfft
-except Exception:
-    warnings.warn("pynfft python package has not been found. If needed use "
-                  "the master release.")
-    pass
+import pynfft
+
 try:
     from pynufft import NUFFT_hsa, NUFFT_cpu
 except Exception:
