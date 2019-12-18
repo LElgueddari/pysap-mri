@@ -41,7 +41,7 @@ install:
     - ls -l $HOME/.local/share/pysap
     - pip install --upgrade pip
     - pip install matplotlib
-    - pip install coverage nose pytest pytest-cov
+    - pip install coverage nose pytest=5.3.1 pytest-cov
     - pip install coveralls
     - pip install pycodestyle
     - pip install pybind11 nibabel pyqt5 pyqtgraph astropy 
@@ -65,7 +65,6 @@ install:
 
 script:
     - python setup.py test
-    - nosetests mri
     - pycodestyle mri --ignore="E121,E123,E126,E226,E24,E704,E402,E731,E722,E741,W503,W504,W605"
     - pycodestyle examples --ignore="E121,E123,E126,E226,E24,E704,E402,E731,E722,E741,W503,W504,W605"
 
