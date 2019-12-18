@@ -16,3 +16,5 @@ from .gradient.gradient import GradAnalysis, GradSynthesis, \
     GradSelfCalibrationAnalysis, GradSelfCalibrationSynthesis
 from .linear.wavelet import WaveletN, WaveletUD2
 from .linear.dictionary import DictionaryLearning
+from .proximity.wavelet_based import GroupLASSO
+from modopt.opt.proximity import SparseThreshold as L1Norm

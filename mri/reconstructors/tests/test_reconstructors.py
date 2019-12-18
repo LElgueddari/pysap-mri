@@ -12,6 +12,7 @@ import numpy as np
 import unittest
 
 # Package import
+from mri.operators import L1Norm
 from mri.operators.fourier.cartesian import FFT
 from mri.operators.fourier.non_cartesian import NonCartesianFFT, Stacked3DNFFT
 from mri.operators.linear.wavelet import WaveletUD2, WaveletN
@@ -21,7 +22,6 @@ from mri.operators.utils import convert_mask_to_locations
 from pysap.data import get_sample_data
 
 from itertools import product
-from modopt.opt.proximity import SparseThreshold
 from modopt.opt.linear import Identity
 
 
@@ -94,9 +94,9 @@ class TestReconstructor(unittest.TestCase):
                 verbose=verbose,
             )
         if gradient_formulation == 'synthesis':
-            regularizer_op = SparseThreshold(Identity(), 0, thresh_type="soft")
+            regularizer_op = L1Norm(Identity(), 0, thresh_type="soft")
         elif gradient_formulation == "analysis":
-            regularizer_op = SparseThreshold(linear_op, 0, thresh_type="soft")
+            regularizer_op = L1Norm(linear_op, 0, thresh_type="soft")
         return linear_op, regularizer_op
 
     def test_single_channel_reconstruction(self):

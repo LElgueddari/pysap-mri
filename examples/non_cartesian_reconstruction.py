@@ -15,7 +15,7 @@ and the acquisition cartesian scheme.
 """
 
 # Package import
-from mri.operators import NonCartesianFFT, WaveletUD2
+from mri.operators import NonCartesianFFT, WaveletUD2, L1Norm
 from mri.operators.utils import convert_locations_to_mask, \
     gridded_inverse_fourier_transform_nd
 from mri.reconstructors import SingleChannelReconstructor
@@ -25,7 +25,6 @@ from pysap.data import get_sample_data
 # Third party import
 from modopt.math.metrics import ssim
 from modopt.opt.linear import Identity
-from modopt.opt.proximity import SparseThreshold
 import numpy as np
 
 # Loading input data
@@ -75,7 +74,7 @@ linear_op = WaveletUD2(
     wavelet_id=24,
     nb_scale=4,
 )
-regularizer_op = SparseThreshold(Identity(), 6 * 1e-7, thresh_type="soft")
+regularizer_op = L1Norm(Identity(), 6 * 1e-7, thresh_type="soft")
 # Setup Reconstructor
 reconstructor = SingleChannelReconstructor(
     fourier_op=fourier_op,

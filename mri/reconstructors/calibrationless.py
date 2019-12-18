@@ -17,7 +17,6 @@ from .base import ReconstructorBase
 from ..operators import GradAnalysis, GradSynthesis, WaveletN
 
 # Third party import
-from modopt.opt.proximity import SparseThreshold
 from modopt.opt.linear import Identity
 
 

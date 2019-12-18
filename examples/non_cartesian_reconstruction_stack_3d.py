@@ -14,7 +14,7 @@ We use the toy datasets available in pysap, more specifically a 3D Orange.
 """
 
 # Package import
-from mri.operators import Stacked3DNFFT, WaveletN
+from mri.operators import Stacked3DNFFT, WaveletN, L1Norm
 from mri.operators.utils import convert_locations_to_mask, \
     gridded_inverse_fourier_transform_stack, get_stacks_fourier
 from mri.reconstructors import SingleChannelReconstructor
@@ -24,7 +24,6 @@ from pysap.data import get_sample_data
 # Third party import
 from modopt.math.metrics import ssim
 from modopt.opt.linear import Identity
-from modopt.opt.proximity import SparseThreshold
 import numpy as np
 
 # Loading input data
@@ -84,7 +83,7 @@ print('The Base SSIM is : ' + str(base_ssim))
 # TODO get the right mu operator
 # Setup the operators
 linear_op = WaveletN(wavelet_name="sym8", nb_scales=4)
-regularizer_op = SparseThreshold(Identity(), 6 * 1e-9, thresh_type="soft")
+regularizer_op = L1Norm(Identity(), 6 * 1e-9, thresh_type="soft")
 # Setup Reconstructor
 reconstructor = SingleChannelReconstructor(
     fourier_op=fourier_op,

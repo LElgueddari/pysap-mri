@@ -16,7 +16,7 @@ and the cartesian acquisition scheme.
 
 # Package import
 from modopt.math.metrics import ssim
-from mri.operators import FFT, WaveletN
+from mri.operators import FFT, WaveletN, L1Norm
 from mri.operators.utils import convert_mask_to_locations
 from mri.reconstructors import SingleChannelReconstructor
 from pysap.data import get_sample_data
@@ -24,7 +24,6 @@ import pysap
 
 # Third party import
 from modopt.opt.linear import Identity
-from modopt.opt.proximity import SparseThreshold
 import numpy as np
 
 # Loading input data and convert it into a single channel using Sum-Of-Squares
@@ -78,7 +77,7 @@ linear_op = WaveletN(
     dim=3,
     padding_mode="periodization",
 )
-regularizer_op = SparseThreshold(Identity(), 2 * 1e-11, thresh_type="soft")
+regularizer_op = L1Norm(Identity(), 2 * 1e-11, thresh_type="soft")
 # Setup Reconstructor
 reconstructor = SingleChannelReconstructor(
     fourier_op=fourier_op,
